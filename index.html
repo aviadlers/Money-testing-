@@ -3,100 +3,262 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Airtel Money Payment | Adlers TV</title>
-
+    <title>Snake Game</title>
     <style>
         body {
             margin: 0;
-            padding: 0;
-            font-family: Poppins, sans-serif;
-            background: #0d0d0d;
-            color: white;
+            padding: 20px;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            height: 100vh;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            color: white;
         }
-
-        .container {
-            width: 90%;
-            max-width: 400px;
-            background: #1a1a1a;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0px 0px 20px rgba(255, 170, 0, 0.3);
+        
+        .game-container {
             text-align: center;
         }
-
-        h2 {
+        
+        h1 {
             margin-bottom: 10px;
-            color: #f5a623;
-            letter-spacing: 1px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
-
-        input {
-            width: 100%;
-            padding: 12px;
-            margin-top: 10px;
-            border: none;
-            border-radius: 8px;
-            outline: none;
-            font-size: 16px;
+        
+        .score {
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: bold;
         }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 15px;
-            background: #f5a623;
-            border: none;
-            border-radius: 8px;
+        
+        canvas {
+            border: 3px solid white;
+            border-radius: 10px;
+            background: #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .controls {
+            margin-top: 20px;
             font-size: 18px;
-            font-weight: 600;
+        }
+        
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            border-radius: 25px;
             cursor: pointer;
-            transition: 0.3s;
-        }
-
-        button:hover {
-            background: #ffb54c;
-        }
-
-        .footer {
-            font-size: 13px;
             margin-top: 15px;
-            opacity: 0.7;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: scale(1.05);
         }
     </style>
 </head>
 <body>
-
-    <div class="container">
-        <h2>Airtel Money Payment</h2>
-
-        <p>Enter amount to pay</p>
-        <input id="amount" type="number" placeholder="Enter ZMW amount">
-
-        <button onclick="payNow()">Pay with Airtel Money</button>
-
-        <p class="footer">Secure real-time payment • Adlers TV</p>
+    <div class="game-container">
+        <h1>🐍 Snake Game</h1>
+        <div class="score">Score: <span id="score">0</span></div>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div class="controls">
+            <p>Use ← ↑ → ↓ arrows to control the snake</p>
+        </div>
+    </div>
+    
+    <div id="gameOver" class="game-over">
+        <h2>Game Over!</h2>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <button onclick="resetGame()">Play Again</button>
     </div>
 
     <script>
-        function payNow() {
-            let amount = document.getElementById("amount").value;
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const finalScoreElement = document.getElementById('finalScore');
+        const gameOverElement = document.getElementById('gameOver');
 
-            if (!amount || amount <= 0) {
-                alert("Please enter a valid amount.");
+        const gridSize = 20;
+        const tileCount = canvas.width / gridSize;
+
+        let snake = [
+            {x: 10, y: 10}
+        ];
+        let food = {};
+        let dx = 0;
+        let dy = 0;
+        let score = 0;
+
+        function randomFood() {
+            food = {
+                x: Math.floor(Math.random() * tileCount),
+                y: Math.floor(Math.random() * tileCount)
+            };
+        }
+
+        function drawGame() {
+            // Clear canvas
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw snake
+            ctx.fillStyle = 'lime';
+            snake.forEach(segment => {
+                ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
+            });
+
+            // Draw food
+            ctx.fillStyle = 'red';
+            ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+        }
+
+        function updateGame() {
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+            // Game over conditions
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+                gameOver();
                 return;
             }
 
-            // Airtel payment link format
-            let muid = "01KA6FNRNFG7W2ERJG96TE0W0C";
-            let redirectUrl = `https://openapi.airtel.africa/merchantpay/pay?merchantRequestId=${Date.now()}&merchantId=${muid}&amount=${amount}&currency=ZMW`;
+            // Check if snake eats itself
+            for (let segment of snake) {
+                if (head.x === segment.x && head.y === segment.y) {
+                    gameOver();
+                    return;
+                }
+            }
 
-            window.location.href = redirectUrl;
+            snake.unshift(head);
+
+            // Check if snake eats food
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreElement.textContent = score;
+                randomFood();
+            } else {
+                snake.pop();
+            }
         }
-    </script>
 
+        function gameOver() {
+            gameOverElement.style.display = 'block';
+            finalScoreElement.textContent = score;
+        }
+
+        function resetGame() {
+            snake = [{x: 10, y: 10}];
+            dx = 0;
+            dy = 0;
+            score = 0;
+            scoreElement.textContent = score;
+            gameOverElement.style.display = 'none';
+            randomFood();
+        }
+
+        function changeDirection(event) {
+            const LEFT_KEY = 37;
+            const RIGHT_KEY = 39;
+            const UP_KEY = 38;
+            const DOWN_KEY = 40;
+
+            const keyPressed = event.keyCode;
+            const goingUp = dy === -1;
+            const goingDown = dy === 1;
+            const goingRight = dx === 1;
+            const goingLeft = dx === -1;
+
+            if (keyPressed === LEFT_KEY && !goingRight) {
+                dx = -1;
+                dy = 0;
+            }
+            if (keyPressed === UP_KEY && !goingDown) {
+                dx = 0;
+                dy = -1;
+            }
+            if (keyPressed === RIGHT_KEY && !goingLeft) {
+                dx = 1;
+                dy = 0;
+            }
+            if (keyPressed === DOWN_KEY && !goingUp) {
+                dx = 0;
+                dy = 1;
+            }
+        }
+
+        function gameLoop() {
+            updateGame();
+            drawGame();
+        }
+
+        // Initialize game
+        randomFood();
+        document.addEventListener('keydown', changeDirection);
+        setInterval(gameLoop, 100);
+
+        // Touch controls for mobile
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener('touchstart', function(event) {
+            touchStartX = event.touches[0].clientX;
+            touchStartY = event.touches[0].clientY;
+            event.preventDefault();
+        }, false);
+
+        canvas.addEventListener('touchmove', function(event) {
+            if (!touchStartX || !touchStartY) return;
+
+            const touchEndX = event.touches[0].clientX;
+            const touchEndY = event.touches[0].clientY;
+
+            const dxTouch = touchEndX - touchStartX;
+            const dyTouch = touchEndY - touchStartY;
+
+            if (Math.abs(dxTouch) > Math.abs(dyTouch)) {
+                // Horizontal swipe
+                if (dxTouch > 0 && dx !== -1) {
+                    dx = 1;
+                    dy = 0;
+                } else if (dxTouch < 0 && dx !== 1) {
+                    dx = -1;
+                    dy = 0;
+                }
+            } else {
+                // Vertical swipe
+                if (dyTouch > 0 && dy !== -1) {
+                    dx = 0;
+                    dy = 1;
+                } else if (dyTouch < 0 && dy !== 1) {
+                    dx = 0;
+                    dy = -1;
+                }
+            }
+
+            touchStartX = null;
+            touchStartY = null;
+            event.preventDefault();
+        }, false);
+    </script>
 </body>
 </html>
